@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import HomeCore
 import NookPluginSDK
+import CryptoKit
 
 let moduleID = "cafe.nero.plugin.homeassistant"
 struct Preferences: Codable {
@@ -32,6 +33,8 @@ struct ProposedControl: Identifiable {
     @Published var busy = false
     @Published var proposed: ProposedControl?
     private var window: NSWindow?
+    private var hostCards = false
+    private var inlineControls: [String: ProposedControl] = [:]
     private var session: UUID?
     private var sequence: UInt64 = 0
     private let input = InputReader()
@@ -124,7 +127,7 @@ struct ProposedControl: Identifiable {
         guard !testMode, !busy, !preferences.server.isEmpty else { return }
         let endpoint: Endpoint
         do { endpoint = try Endpoint(preferences.server) } catch { shouldConnect = false; notice = "Check the saved server address in Settings."; return }
-        busy = true; let attempt = UUID(); connectionAttempt = attempt
+        busy = true; notice = "Opening saved connection…"; publishNeeded = true; let attempt = UUID(); connectionAttempt = attempt
         nextReconnect = Date().addingTimeInterval(max(75, retryDelay)); retryDelay = min(120, retryDelay * 2)
         Task {
             defer { if connectionAttempt == attempt { busy = false; publishNeeded = true } }
@@ -197,7 +200,8 @@ struct ProposedControl: Identifiable {
         guard m.pluginID == moduleID else { NSApp.terminate(nil); return }
         if session == nil {
             guard m.type == "hello" else { NSApp.terminate(nil); return }; session = m.session
-            emit("ready", features: ["actions-v1", "dashboard-v1", "panels-v1", "diagrams-v1"])
+            hostCards = m.features?.contains("control-cards-v1") == true
+            emit("ready", features: ["actions-v1", "dashboard-v1", "panels-v1", "diagrams-v1", "control-cards-v1"])
             let target = [PluginParameter("server", .string), PluginParameter("entity", .string)]
             send(.init(.register, registration: .init(actions: [
                 .init("read_status", title: "Read Home Assistant status", output: .init([.init("server", .string), .init("connected", .boolean), .init("message", .string)])),
@@ -207,7 +211,14 @@ struct ProposedControl: Identifiable {
             publish(); return
         }
         guard m.session == session else { NSApp.terminate(nil); return }
-        if m.type == "action" { switch m.action { case "configure": showWindow(); settingsVisible = true; case "controls": showWindow(); case "refresh": refresh(); default: break } }
+        if m.type == "action" { switch m.action { case "configure": showWindow(); settingsVisible = true; case "controls": showWindow(); case "refresh": refresh(); default:
+            if let action = m.action, let proposal = inlineControls[action], canControl(proposal.entity), proposal.server == preferences.server,
+               client.inventory.entities[proposal.entity.id]?.state == proposal.entity.state {
+                inlineControls.removeAll()
+                confirm(proposal)
+                publish()
+            }
+        } }
         if m.type == "bus", let bus = m.bus, bus.operation == .execute { execute(bus) }
     }
     private func execute(_ b: PluginBusMessage) {
@@ -220,9 +231,42 @@ struct ProposedControl: Identifiable {
     }
     func publish() {
         guard session != nil else { return }; lastPublish = Date(); publishNeeded = false
-        let snapshot = PluginSnapshot(title: "Home Assistant", status: String(status.prefix(250)), activity: String(status.prefix(100)), fields: [.init("Home", client.homeName), .init("Entities", String(entities.count))], actions: [
+        inlineControls.removeAll()
+        let panels: [PluginPanel] = ["Favorites", "Rooms", "Scenes"].map { page in
+            if !hostCards { return .init(page.lowercased(), page, diagrams: [homeDiagram(self, page: page)]) }
+            let selected = entities.filter { page == "Favorites" ? preferences.favorites.contains($0.id) : page == "Scenes" ? $0.domain == "scene" : $0.domain != "scene" }
+            return .init(page.lowercased(), page, cards: selected.prefix(64).map { entity in
+                let key = SHA256.hash(data: Data((preferences.server + "|" + entity.id).utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
+                var actions: [PluginAction] = []
+                if entity.supportsControl {
+                    let on: Bool? = entity.domain == "scene" ? nil : entity.state != "on"
+                    let id = "home_" + key + (on.map { $0 ? "_on" : "_off" } ?? "_scene")
+                    let proposal = ProposedControl(entity: entity, on: on, server: preferences.server)
+                    inlineControls[id] = proposal
+                    actions = [.init(id, on.map { $0 ? "Turn on" : "Turn off" } ?? "Activate", enabled: canControl(entity), symbol: on == nil ? "play.fill" : "power", confirmation: String((proposal.title + " " + proposal.detail).prefix(400)))]
+                }
+                return PluginControlCard("entity_" + key, title: String(entity.name.prefix(80)), subtitle: String(client.rooms.room(entity.id).prefix(100)), value: String((entity.domain == "scene" ? "Scene" : entity.display.capitalized).prefix(100)), detail: entity.supportsControl && !preferences.controls.contains(entity.id) ? "Read only · enable in Settings" : String(entity.detail.prefix(300)), symbol: entity.symbol, highlighted: entity.state == "on", actions: actions)
+            })
+        }
+        let activity = notice.isEmpty ? status : notice
+        var snapshot = PluginSnapshot(title: "Home Assistant", status: String(activity.prefix(250)), activity: String(activity.prefix(100)), fields: [.init("Home", client.homeName), .init("Entities", String(entities.count))], actions: hostCards ? [] : [
             .init("controls", "Open home", symbol: "house"), .init("refresh", "Refresh", enabled: !busy && !preferences.server.isEmpty, symbol: "arrow.clockwise")
-        ], badge: client.connected ? "Live" : "Offline", panels: ["Favorites", "Rooms", "Scenes"].map { .init($0.lowercased(), $0, diagrams: [homeDiagram(self, page: $0)]) })
+        ], badge: busy ? "Working…" : client.connected ? "Live" : "Offline", panels: panels)
+        // Text may contain multi-byte characters; bound the encoded message, not just card counts.
+        var trimmed = false
+        while ((try? PluginMessage(type: "snapshot", pluginID: moduleID, session: session!, snapshot: snapshot).encoded().count) ?? Int.max) > 120 * 1024 {
+            guard let index = snapshot.panels?.indices.max(by: { (snapshot.panels?[$0].cards?.count ?? 0) < (snapshot.panels?[$1].cards?.count ?? 0) }),
+                  snapshot.panels?[index].cards?.isEmpty == false else { return }
+            snapshot.panels?[index].cards?.removeLast(); trimmed = true
+        }
+        if hostCards {
+            let shown = snapshot.panels?.flatMap { $0.cards ?? [] }.count ?? 0
+            let expected = entities.count + entities.filter { preferences.favorites.contains($0.id) }.count
+            if trimmed || shown < expected { snapshot.status = "Showing a limited set of items. Use Favorites to keep your everyday devices here." }
+            let advertised = Set(snapshot.displayActions.filter(\.enabled).map(\.id))
+            inlineControls = inlineControls.filter { advertised.contains($0.key) }
+        }
+        guard (try? snapshot.validate()) != nil else { return }
         emit("snapshot", snapshot: snapshot); send(.init(.publish, address: .init(moduleID, "status"), values: values, lifetime: 10))
     }
     private func send(_ bus: PluginBusMessage) { emit("bus", bus: bus) }

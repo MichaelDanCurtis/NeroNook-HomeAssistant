@@ -37,3 +37,11 @@ The tests use a loopback-only Python standard-library WebSocket fixture. Python 
 Sources: [WebSocket API](https://developers.home-assistant.io/docs/api/websocket/), [authentication](https://developers.home-assistant.io/docs/auth_api/).
 
 A real, isolated [Docker test home](Testing/HomeAssistant/README.md) is available for development with virtual lights, sensors and scenes. Docker is a test dependency only. See [STATUS.md](STATUS.md) for verified evidence and remaining acceptance.
+
+### Controls inside NeroNook (0.2.0)
+
+With NeroNook 0.13.0 or later, Favorites, Rooms and Scenes are interactive native cards. Switch an allowed light/device on or off, or activate a scene; review and confirm in the same card. The module reports confirmed light/switch state or scene API acceptance in the Nook. Search and room filtering stay inside the 16:9 interface. Unavailable devices and controls not enabled in Settings remain disabled. Sensors and other unsupported domains remain read only.
+
+The host's shared `control-cards-v1` SDK handles presentation and opaque action delivery. This package still owns the server, credentials, allowed targets, stale-state checks and actual commands. Older hosts retain the passive diagram and separate-window fallback. Each panel includes up to 64 items, further bounded by encoded message size; large inventories should use Favorites for everyday devices. No household or endpoint state is written to NeroNook.
+
+Run `python3 scripts/test-inline-controls.py` after a debug build for production-plugin inline dispatch against a disposable loopback fixture. It never reads saved settings or Keychain credentials.

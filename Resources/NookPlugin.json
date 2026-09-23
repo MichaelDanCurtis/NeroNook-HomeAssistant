@@ -1,7 +1,7 @@
 {
   "id": "cafe.nero.plugin.homeassistant",
   "name": "Home Assistant",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "summary": "Your home in the Nook: favorites, rooms, scenes and live state.",
   "capabilities": [
     "Connects to your chosen Home Assistant server using its supported WebSocket API",
