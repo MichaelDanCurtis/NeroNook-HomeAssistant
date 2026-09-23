@@ -36,4 +36,4 @@ The tests use a loopback-only Python standard-library WebSocket fixture. Python 
 
 Sources: [WebSocket API](https://developers.home-assistant.io/docs/api/websocket/), [authentication](https://developers.home-assistant.io/docs/auth_api/).
 
-See [STATUS.md](STATUS.md) for verified evidence and remaining acceptance.
+A real, isolated [Docker test home](Testing/HomeAssistant/README.md) is available for development with virtual lights, sensors and scenes. Docker is a test dependency only. See [STATUS.md](STATUS.md) for verified evidence and remaining acceptance.

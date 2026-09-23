@@ -1,0 +1,46 @@
+name: neronook-homeassistant-test
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant@sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196
+    container_name: neronook-homeassistant-test
+    volumes:
+      - ../../build/test-home/config:/config
+    environment:
+      TZ: America/Los_Angeles
+    restart: "no"
+    mem_limit: 2g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - test
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "2"
+  relay:
+    image: ghcr.io/home-assistant/home-assistant@sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196
+    entrypoint: ["python3", "-u", "/relay.py"]
+    container_name: neronook-homeassistant-test-relay
+    ports:
+      - "127.0.0.1:18123:8123"
+    volumes:
+      - ./relay.py:/relay.py:ro
+    depends_on:
+      - homeassistant
+    networks:
+      - test
+      - frontend
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+    cpus: 0.25
+    restart: "no"
+networks:
+  test:
+    internal: true
+  frontend:

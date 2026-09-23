@@ -1,0 +1,104 @@
+# Virtual test home only. No discovery, MQTT, cloud or physical integrations.
+homeassistant:
+  name: NeroNook Test Home
+  latitude: 0
+  longitude: 0
+  elevation: 0
+  unit_system: imperial
+  time_zone: America/Los_Angeles
+  country: US
+frontend:
+api:
+websocket_api:
+config:
+http:
+logger:
+  default: warning
+input_boolean:
+  desk_lamp:
+    name: Desk lamp virtual power
+  reading_light:
+    name: Reading light virtual power
+  desk_fan:
+    name: Desk fan virtual power
+  offline_device:
+    name: Offline device availability
+input_number:
+  office_temperature:
+    name: Office temperature virtual reading
+    min: 10
+    max: 35
+    initial: 22.4
+    step: 0.1
+  office_humidity:
+    name: Office humidity virtual reading
+    min: 0
+    max: 100
+    initial: 46
+    step: 1
+template:
+  - light:
+      - name: Desk Lamp
+        unique_id: neronook_test_desk_lamp
+        state: "{{ is_state('input_boolean.desk_lamp', 'on') }}"
+        turn_on:
+          action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.desk_lamp
+        turn_off:
+          action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.desk_lamp
+      - name: Reading Light
+        unique_id: neronook_test_reading_light
+        state: "{{ is_state('input_boolean.reading_light', 'on') }}"
+        turn_on:
+          action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.reading_light
+        turn_off:
+          action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.reading_light
+      - name: Offline Light
+        unique_id: neronook_test_offline_light
+        availability: "{{ is_state('input_boolean.offline_device', 'on') }}"
+        state: "{{ false }}"
+        turn_on: []
+        turn_off: []
+  - switch:
+      - name: Desk Fan
+        unique_id: neronook_test_desk_fan
+        state: "{{ is_state('input_boolean.desk_fan', 'on') }}"
+        turn_on:
+          action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.desk_fan
+        turn_off:
+          action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.desk_fan
+  - sensor:
+      - name: Office Temperature
+        unique_id: neronook_test_temperature
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ states('input_number.office_temperature') }}"
+      - name: Office Humidity
+        unique_id: neronook_test_humidity
+        device_class: humidity
+        unit_of_measurement: "%"
+        state: "{{ states('input_number.office_humidity') }}"
+scene:
+  - name: Work Mode
+    id: neronook_test_work_mode
+    entities:
+      light.desk_lamp: "on"
+      light.reading_light: "off"
+      switch.desk_fan: "on"
+  - name: Evening
+    id: neronook_test_evening
+    entities:
+      light.desk_lamp: "off"
+      light.reading_light: "on"
+      switch.desk_fan: "off"
