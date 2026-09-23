@@ -12,5 +12,10 @@
     "Checks light and switch state after a command",
     "Exports typed reviewed actions and fresh status through the shared SDK"
   ],
-  "apiVersion": 1
+  "apiVersion": 1,
+  "icon": {
+    "symbol": "house.fill",
+    "color": "64CFF4",
+    "badge": "network"
+  }
 }
