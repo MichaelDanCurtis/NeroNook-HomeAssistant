@@ -109,7 +109,7 @@ struct ProposedControl: Identifiable {
             do {
                 // Keychain approval may wait for the user. Keep UI and SDK heartbeat alive.
                 let token = try await Task.detached {
-                    let value = freshToken.isEmpty ? try CredentialStore.token(for: endpoint.id) : freshToken
+                    let value = freshToken.isEmpty ? try CredentialStore.token(for: endpoint.id, allowUI: true) : freshToken
                     guard let value, !value.isEmpty else { throw HomeError("Paste a Home Assistant access token into the secure field.") }
                     if !freshToken.isEmpty { try CredentialStore.save(value, for: endpoint.id) }
                     return value
@@ -132,11 +132,11 @@ struct ProposedControl: Identifiable {
         Task {
             defer { if connectionAttempt == attempt { busy = false; publishNeeded = true } }
             do {
-                let token = try await Task.detached { try CredentialStore.token(for: endpoint.id) }.value
+                let token = try await Task.detached { try CredentialStore.token(for: endpoint.id, allowUI: false) }.value
                 guard connectionAttempt == attempt else { return }
                 guard let token, !token.isEmpty else { shouldConnect = false; notice = "Add a token in Settings to connect."; return }
                 client.connect(endpoint, token: token)
-            } catch { if connectionAttempt == attempt { shouldConnect = false; notice = "Could not read the saved connection. Open Settings." } }
+            } catch { if connectionAttempt == attempt { shouldConnect = false; notice = "Saved connection needs attention. Open Settings and choose Connect to unlock it; leave the token field blank." } }
         }
     }
     func disconnect() {
@@ -199,9 +199,9 @@ struct ProposedControl: Identifiable {
     private func receive(_ m: PluginMessage) {
         guard m.pluginID == moduleID else { NSApp.terminate(nil); return }
         if session == nil {
-            guard m.type == "hello" else { NSApp.terminate(nil); return }; session = m.session
+            guard m.type == "hello" else { NSApp.terminate(nil); return }; session = m.session; PluginAppearanceStore.shared.beginSession(pluginID:moduleID,session:m.session)
             hostCards = m.features?.contains("control-cards-v1") == true
-            emit("ready", features: ["actions-v1", "dashboard-v1", "panels-v1", "diagrams-v1", "control-cards-v1"])
+            emit("ready", features: ["appearance-v1", "actions-v1", "dashboard-v1", "panels-v1", "diagrams-v1", "control-cards-v1"])
             let target = [PluginParameter("server", .string), PluginParameter("entity", .string)]
             send(.init(.register, registration: .init(actions: [
                 .init("read_status", title: "Read Home Assistant status", output: .init([.init("server", .string), .init("connected", .boolean), .init("message", .string)])),
@@ -210,7 +210,7 @@ struct ProposedControl: Identifiable {
             ], channels: [.init("status", title: "Home Assistant status", kind: .state, schema: .init([.init("server", .string), .init("connected", .boolean), .init("message", .string)]))])))
             publish(); return
         }
-        guard m.session == session else { NSApp.terminate(nil); return }
+        guard m.session == session else { NSApp.terminate(nil); return }; if m.type == "appearance" { _ = PluginAppearanceStore.shared.receive(m); return }
         if m.type == "action" { switch m.action { case "configure": showWindow(); settingsVisible = true; case "controls": showWindow(); case "refresh": refresh(); default:
             if let action = m.action, let proposal = inlineControls[action], canControl(proposal.entity), proposal.server == preferences.server,
                client.inventory.entities[proposal.entity.id]?.state == proposal.entity.state {
@@ -250,7 +250,7 @@ struct ProposedControl: Identifiable {
         }
         let activity = notice.isEmpty ? status : notice
         var snapshot = PluginSnapshot(title: "Home Assistant", status: String(activity.prefix(250)), activity: String(activity.prefix(100)), fields: [.init("Home", client.homeName), .init("Entities", String(entities.count))], actions: hostCards ? [] : [
-            .init("controls", "Open home", symbol: "house"), .init("refresh", "Refresh", enabled: !busy && !preferences.server.isEmpty, symbol: "arrow.clockwise")
+            .init("controls", "Open home", symbol: "house", placement: .menu), .init("refresh", "Refresh", enabled: !busy && !preferences.server.isEmpty, symbol: "arrow.clockwise", placement: .menu)
         ], badge: busy ? "Working…" : client.connected ? "Live" : "Offline", panels: panels)
         // Text may contain multi-byte characters; bound the encoded message, not just card counts.
         var trimmed = false
@@ -277,7 +277,7 @@ struct ProposedControl: Identifiable {
     func showWindow() {
         if window == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 940, height: 650), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            w.title = "Home Assistant"; w.contentView = NSHostingView(rootView: HomeView(model: self)); w.minSize = NSSize(width: 820, height: 570); w.isReleasedWhenClosed = false; w.center(); window = w
+            w.title = "Home Assistant"; w.contentView = NSHostingView(rootView: HomeView(model: self).pluginThemed()); w.minSize = NSSize(width: 820, height: 570); w.isReleasedWhenClosed = false; w.center(); window = w
         }
         window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
