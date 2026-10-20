@@ -2,8 +2,11 @@ import Foundation
 import Security
 
 enum CredentialStore {
-    static func token(for device: String) throws -> String? {
+    static func token(for device: String, allowUI: Bool) throws -> String? {
         var query = base(device); query[kSecReturnData as String] = true; query[kSecMatchLimit as String] = kSecMatchLimitOne
+        // Automatic reconnect must never wait on a hidden system approval.
+        // Only the user's explicit Connect gesture may request Keychain UI.
+        query[kSecUseAuthenticationUI as String] = allowUI ? kSecUseAuthenticationUIAllow : kSecUseAuthenticationUIFail
         var value: CFTypeRef?
         let result = SecItemCopyMatching(query as CFDictionary, &value)
         if result == errSecItemNotFound { return nil }

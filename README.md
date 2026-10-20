@@ -1,6 +1,14 @@
+**October 18 · local 0.2.2 installed:** shared glass, paired Light/Dark, independent bundled presence/particle artwork and component motion. Saved connection/settings remain scoped to this plugin. [Rollout evidence and limits](../NeroNook/reports/redesign-ember-2026-10-18/README.md). No public release.
+
 # Home Assistant for NeroNook
 
-Independent native macOS plugin, 0.1.0 developer preview. Favorites, Rooms and Scenes occupy the common 16:9 Nook surface. The native home window provides search, room filtering, favorites and individually enabled controls. Connection setup and diagnostics live in Settings, never in a content tab.
+**October 17 · local 0.2.1:** automatic reconnect no longer waits on a hidden
+Keychain approval; explicit Connect retains the normal approval flow. The
+redesigned Nook reconnects to the existing Docker test home, and Cancel plus
+reviewed virtual lamp on/off pass with independent state read-back. Saved settings
+and permissions are unchanged. [Qualification and limits](reports/redesign-live-2026-10-17/README.md).
+
+Independent native macOS plugin, 0.2.1 local developer preview. Favorites, Rooms and Scenes occupy the common 16:9 Nook surface. The native home window provides search, room filtering, favorites and individually enabled controls. Connection setup and diagnostics live in Settings, never in a content tab.
 
 ## Connect
 

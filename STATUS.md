@@ -1,3 +1,13 @@
+# October 17, 2026 — local redesigned module 0.2.1
+
+| Milestone | Current evidence | Remaining acceptance |
+| --- | --- | --- |
+| Saved reconnect | Automatic Keychain reads prohibit interaction; explicit Settings Connect retains normal system approval. Signed update restores the existing test home without a prompt, with 24 live entities | Locked/denied Keychain and prolonged outage/sleep cases |
+| Actual redesigned controls | Six saved favorite cards and populated Settings fit; unavailable light disabled; Cancel and reviewed virtual lamp on/off confirmed independently; three initial virtual states restored | Physical household, broader devices/scenes and paired appearance matrix |
+| Local qualification | Nine tests, signed package, legacy/cards protocol and isolated inline-control checks pass; all installed files match; exact settings/grant hashes retained | No public-release/notarization claim; existing loopback test containers remain running with restart policy no |
+
+[Evidence and exact limits](reports/redesign-live-2026-10-17/README.md).
+
 # Home Assistant module status
 
 September 22, 2026 · 0.2.0 · local developer preview

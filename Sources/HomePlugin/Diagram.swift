@@ -3,9 +3,10 @@ import HomeCore
 import NookPluginSDK
 
 @MainActor func homeDiagram(_ model: HomeModule, page: String) -> PluginDiagram {
+    let roles: [String: PluginDiagramColorRole] = ["#0C141A": .background, "#19252D": .surface, "#153A35": .elevated, "#E9F3F3": .text, "#EDF4F5": .text, "#7CF0D8": .accent, "#7F9B9D": .secondary, "#96ABAE": .secondary, "#95B1B3": .secondary]
     var e: [PluginDiagramElement] = []
-    func box(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: String, _ r: Double = 14) { e.append(.init(.box, x: x, y: y, w: w, h: h, fill: color, radius: r)) }
-    func text(_ value: String, _ x: Double, _ y: Double, _ w: Double, _ h: Double, _ font: Double = 18, _ color: String = "#E9F3F3") { e.append(.init(.text, x: x, y: y, w: w, h: h, fill: color, text: String(value.prefix(180)), font: font)) }
+    func box(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: String, _ r: Double = 14) { e.append(.init(.box, x: x, y: y, w: w, h: h, fill: color, radius: r, fillRole: roles[color])) }
+    func text(_ value: String, _ x: Double, _ y: Double, _ w: Double, _ h: Double, _ font: Double = 18, _ color: String = "#E9F3F3") { e.append(.init(.text, x: x, y: y, w: w, h: h, fill: color, text: String(value.prefix(180)), font: font, fillRole: roles[color])) }
     box(0, 0, 960, 540, "#0C141A", 0)
     box(30, 27, 5, 36, "#51DAC5", 2)
     text(String(model.client.homeName.prefix(45)), 50, 24, 710, 40, 28)
